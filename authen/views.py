@@ -1,18 +1,20 @@
-from auth.backend import BackendType, GoogleAuthBackend
+import json
+from authen.backend import BackendType, GoogleAuthBackend
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
-from django.conf import settings
 import django.contrib.auth
 
-from auth.models import User
+from authen.models import User
+
+GOOGLE_BACKEND = GoogleAuthBackend.get_instance()
 
 @require_POST
 def login_api(request):
-    auth_type = BackendType.from_val(int(request.POST.get("auth_type")))
+    data = json.loads(request.body.decode('utf-8'))
+    auth_type = BackendType.from_val(int(data["auth_type"]))
 
     if auth_type == BackendType.GOOGLE:
-        backend = GoogleAuthBackend({'SA_KEY_FILE': settings.FIREBASE_SA_FILE})
-        user_details = backend.verify_token(request.POST.get("token"))
+        user_details = GOOGLE_BACKEND.verify_token(data["token"])
 
         user = User.objects.filter(email=user_details['email'])
         if not user.exists():

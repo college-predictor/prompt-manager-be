@@ -1,4 +1,4 @@
-import auth.views as views
+import authen.views as views
 from django.urls import path
 
 urlpatterns = [

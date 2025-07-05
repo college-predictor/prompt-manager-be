@@ -1,17 +1,20 @@
 import logging
 from enum import Enum
 
+from django.conf import settings
+
 import firebase_admin
 import firebase_admin.auth
 
 logger = logging.getLogger(__file__)
+
 
 class BackendType(Enum):
     GOOGLE = (0, )
 
     @property
     def i(self):
-        return self[0]
+        return self.value[0]
     
     @classmethod
     def from_val(cls, val):
@@ -23,13 +26,17 @@ class BackendType(Enum):
 
 class BackendInitException(Exception):
     def __init__(self, *args, **kwargs):
-        super(Exception).__init__(args, kwargs)
+        super().__init__(args, kwargs)
+
 
 class AuthFailedException(Exception):
     def __init__(self, *args, **kwargs):
-        super(Exception).__init__(args, kwargs)
+        super().__init__(args, kwargs)
+
 
 class GoogleAuthBackend:
+    instance = None
+
     def __init__(self, config):
         self.type = BackendType.GOOGLE
         self.cred = firebase_admin.credentials.Certificate(config['SA_KEY_FILE'])
@@ -39,6 +46,14 @@ class GoogleAuthBackend:
         except Exception as e:
             logger.error(f"Error initializing Firebase SDK: {e}", exc_info=1)
             raise BackendInitException()
+
+
+    @classmethod
+    def get_instance(cls):
+        if cls.instance is None:
+            cls.instance = GoogleAuthBackend({"SA_KEY_FILE": settings.FIREBASE_SA_FILE})
+        return cls.instance
+
 
     def verify_token(self, token):
         try:

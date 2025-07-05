@@ -1,4 +1,4 @@
-from django import models
+from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth.base_user import BaseUserManager
 
@@ -19,8 +19,9 @@ class User(AbstractUser):
     username = None
     name = models.TextField(null=False)
     email = models.EmailField(unique=True)
-
+    
     USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = []
     
     objects = UserManager()
 

@@ -1,27 +1,18 @@
-from django import models
-from enum import Enum
-from auth.models import User
+from django.db import models
+from authen.models import User
 
 
-class LLMProvider(Enum):
-    OPENAI = (1, )
-    GOOGLE_GENAI = (2, )
-    AMAZON_BEDROCK = (3, )
-    AZURE = (4, )
-    ANTHROPIC = (5, )
-
-    @property
-    def i(self):
-        return self[0]
+class LLMProvider(models.IntegerChoices):
+    OPENAI = (1, "OpenAI")
+    GOOGLE_GENAI = (2, "Google GenAI")
+    AMAZON_BEDROCK = (3, "Amazon Bedrock")
+    AZURE = (4, "Azure")
+    ANTHROPIC = (5, "Anthropic")
 
 
-class Role(Enum):
-    ADMIN = (0, )
-    USER = (1, )
-
-    @property
-    def i(self):
-        return self[0]
+class Role(models.IntegerChoices):
+    ADMIN = (0, "Admin")
+    USER = (1, "User")
 
 
 class LLMModel(models.Model):
@@ -31,14 +22,14 @@ class LLMModel(models.Model):
     def serialize(self):
         return {
             "name": self.name,
-            "provider": self.provider.i
+            "provider": self.provider
         }
 
 
 class Project(models.Model):
     name = models.CharField(max_length=120, null=False)
     description = models.TextField(default=None)
-    models = models.ManyToManyField(LLMModel, related_name='+')
+    llm_models = models.ManyToManyField(LLMModel, related_name='+')
     users = models.ManyToManyField(User, through='ProjectMembership', related_name='projects')
     
 

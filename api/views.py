@@ -1,31 +1,35 @@
+import json
 import api.models as models
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 
 @login_required
 def projects_api(request):
-    verb = request.POST.get('action', 'list')
+    data = json.loads(request.body.decode('UTF-8'))
+    verb = data.get('action', 'list')
 
     if verb == 'list':
-        project_links = models.ProjectMember.objects.filter(user=request.user)
+        project_links = models.ProjectMembership.objects.filter(user=request.user)
         project_data = []
 
         for link in project_links:
             project = link.project
             project_data.append({
-                'role': link.role.i,
+                'role': link.role,
                 'name': project.name,
                 'description': project.description,
                 'models': [
-                    model.serialize() for model in project.models.objects.all()
+                    model.serialize() for model in project.llm_models.all()
                 ]
             })
 
         return JsonResponse({"result": "ok", "data": {"count": project_links.count(), "data": project_data}})
 
     if verb == 'new':
-        project = models.Project.objects.create(name=request.POST.get('name'), description=request.POST.get("description"))
+        project = models.Project.objects.create(name=data['name'], description=data["description"])
         project.save()
+        # TODO: add llm_models
+
         membership = models.ProjectMembership.objects.create(user=request.user, project=project, role=models.Role.ADMIN)
         membership.save()
         return JsonResponse({"result": "ok"})
@@ -35,7 +39,8 @@ def projects_api(request):
 
 @login_required
 def one_project_api(request, project_id):
-    verb = request.POST.get('action', 'view')
+    data = json.loads(request.body.decode('UTF-8'))
+    verb = data.get('action', 'view')
 
     if verb == 'delete':
         project = models.Project.objects.filter(id=project_id)
@@ -54,7 +59,8 @@ def one_project_api(request, project_id):
 
 @login_required
 def config_api(request):
-    clazz = request.POST.get('class')
+    data = json.loads(request.body.decode('UTF-8'))
+    clazz = data['class']
 
     if clazz == 'models':
         llm_models = models.LLMModel.objects.all()
