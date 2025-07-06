@@ -16,8 +16,8 @@ def login_api(request):
     if auth_type == BackendType.GOOGLE:
         user_details = GOOGLE_BACKEND.verify_token(data["token"])
 
-        user = User.objects.filter(email=user_details['email'])
-        if not user.exists():
+        user = User.objects.filter(email=user_details['email']).first()
+        if not user:
             user = User.objects.create_user(email=user_details['email'], name=user_details['name'])
         
         django.contrib.auth.login(request, user)

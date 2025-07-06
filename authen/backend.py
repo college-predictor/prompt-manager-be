@@ -59,8 +59,8 @@ class GoogleAuthBackend:
         try:
             decoded_token = firebase_admin.auth.verify_id_token(token)
 
-            if not decoded_token.get('email_verified'):
-                raise AuthFailedException()
+            # if not decoded_token.get('email_verified'):
+            #     raise AuthFailedException()
             
         except firebase_admin.auth.InvalidIdTokenError as e:
             logger.error(f"Invalid Firebase Token: {e}", exc_info=1)
