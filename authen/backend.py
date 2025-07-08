@@ -68,6 +68,6 @@ class GoogleAuthBackend:
 
         return {
             'name': decoded_token.get('name', 'Anonymous'),
-            'email': decoded_token.get('email', 'example@example.com'),
+            'email': decoded_token.get('email'),
         }
     
