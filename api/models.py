@@ -29,7 +29,6 @@ class LLMModel(models.Model):
     temperature = models.FloatField(null=True, blank=True)
     max_tokens = models.IntegerField(null=True, blank=True)
     roles_allowed = models.JSONField(default=list)
-    stream = models.BooleanField(default=False)
     top_p = models.FloatField(null=True, blank=True)
     top_k = models.IntegerField(null=True, blank=True)
     image_input = models.BooleanField(default=False)
