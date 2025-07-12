@@ -24,7 +24,7 @@ class LLMRoles(models.IntegerChoices):
 
 class LLMModel(models.Model):
     model_name = models.CharField(max_length=50, null=False)
-    provider_name = models.IntegerField(choices=LLMProvider, null=False)
+    provider_id = models.IntegerField(choices=LLMProvider, null=False)
     description = models.TextField(default=None)
     temperature = models.FloatField(null=True, blank=True)
     max_tokens = models.IntegerField(null=True, blank=True)
@@ -54,15 +54,17 @@ class LLMModel(models.Model):
 
     def __str__(self) -> str:
         return (
-            f"LLMModel(model_name='{self.model_name}', provider='{self.provider_name}', "
+            f"LLMModel(model_name='{self.model_name}', provider_id='{self.provider_id}', "
             f"temperature={self.temperature}, max_tokens={self.max_tokens}, top_p={self.top_p}, top_k={self.top_k}, "
             f"roles_allowed={self.roles_allowed}, image_input={self.image_input}, audio_input={self.audio_input})"
         )
 
     def serialize(self):
         return {
+            "id": self.id,
             "model_name": self.model_name,
-            "provider_name": self.provider_name,
+            "provider_id": self.provider_id,
+            "provider_name": LLMProvider(self.provider_id).label,
             "description": self.description,
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,

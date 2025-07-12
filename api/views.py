@@ -16,6 +16,7 @@ def projects_api(request):
             project = link.project
             project_data.append({
                 'role': link.role,
+                'id': project.id,
                 'name': project.name,
                 'description': project.description,
                 'models': [
@@ -28,8 +29,17 @@ def projects_api(request):
     if verb == 'new':
         project = models.Project.objects.create(name=data['name'], description=data["description"])
         project.save()
-        # TODO: add llm_models
-
+        
+        # Add LLM models to the project if provided
+        if 'llm_models' in data and data['llm_models']:
+            for model_id in data['llm_models']:
+                try:
+                    llm_model = models.LLMModel.objects.get(id=model_id)
+                    project.llm_models.add(llm_model)
+                except models.LLMModel.DoesNotExist:
+                    # Skip invalid model IDs
+                    pass
+        
         membership = models.ProjectMembership.objects.create(user=request.user, project=project, role=models.Role.ADMIN)
         membership.save()
         return JsonResponse({"result": "ok"})
@@ -43,8 +53,8 @@ def one_project_api(request, project_id):
     verb = data.get('action', 'view')
 
     if verb == 'delete':
-        project = models.Project.objects.filter(id=project_id)
-        if not project.exists():
+        project = models.Project.objects.filter(id=project_id).first()
+        if not project:
             return JsonResponse({"result": "failure", "data": {"message": "not found"}})
 
         membership = models.ProjectMembership.objects.get(user=request.user, project=project)
