@@ -26,37 +26,19 @@ class LLMModel(models.Model):
     model_name = models.CharField(max_length=50, null=False)
     provider_id = models.IntegerField(choices=LLMProvider, null=False)
     description = models.TextField(default=None)
-    temperature = models.FloatField(null=True, blank=True)
-    max_tokens = models.IntegerField(null=True, blank=True)
+    has_max_token_limit = models.IntegerField(null=True, blank=True)
+    temperature_allowed = models.BooleanField(default=False)
     roles_allowed = models.JSONField(default=list)
-    top_p = models.FloatField(null=True, blank=True)
-    top_k = models.IntegerField(null=True, blank=True)
-    image_input = models.BooleanField(default=False)
-    audio_input = models.BooleanField(default=False)
-
-    def is_temperature_allowed(self) -> bool:
-        return self.temperature is not None
-
-    def is_max_tokens_allowed(self) -> bool:
-        return self.max_tokens is not None
-
-    def is_top_p_allowed(self) -> bool:
-        return self.top_p is not None
-
-    def is_top_k_allowed(self) -> bool:
-        return self.top_k is not None
-    
-    def is_image_input_allowed(self) -> bool:
-        return self.image_input
-    
-    def is_audio_input_allowed(self) -> bool:
-        return self.audio_input
+    top_p_allowed = models.BooleanField(default=False)
+    top_k_allowed = models.BooleanField(default=False)
+    image_input_allowed = models.BooleanField(default=False)
+    audio_input_allowed = models.BooleanField(default=False)
 
     def __str__(self) -> str:
         return (
             f"LLMModel(model_name='{self.model_name}', provider_id='{self.provider_id}', "
-            f"temperature={self.temperature}, max_tokens={self.max_tokens}, top_p={self.top_p}, top_k={self.top_k}, "
-            f"roles_allowed={self.roles_allowed}, image_input={self.image_input}, audio_input={self.audio_input})"
+            f"temperature={self.temperature_allowed}, max_tokens={self.has_max_token_limit}, top_p={self.top_p_allowed}, top_k={self.top_k_allowed}, "
+            f"roles_allowed={self.roles_allowed}, image_input={self.image_input_allowed}, audio_input={self.audio_input_allowed})"
         )
 
     def serialize(self):
@@ -66,13 +48,13 @@ class LLMModel(models.Model):
             "provider_id": self.provider_id,
             "provider_name": LLMProvider(self.provider_id).label,
             "description": self.description,
-            "temperature": self.temperature,
-            "max_tokens": self.max_tokens,
-            "top_p": self.top_p,
-            "top_k": self.top_k,
+            "temperature": self.temperature_allowed,
+            "max_tokens": self.has_max_token_limit,
+            "top_p": self.top_p_allowed,
+            "top_k": self.top_k_allowed,
             "roles_allowed": self.roles_allowed,
-            "image_input": self.image_input,
-            "audio_input": self.audio_input
+            "image_input": self.image_input_allowed,
+            "audio_input": self.audio_input_allowed
         }
 
 
