@@ -21,14 +21,12 @@ jobs:
               env:
                 EC2_USER: ubuntu
                 EC2_HOST: ${{ secrets.EC2_HOST }}
-                PROJECT_PATH: /home/ubuntu/prompt-manager-be
               run: |
                 ssh -i ~/.ssh/id_ed25519 ${EC2_USER}@${EC2_HOST} << 'EOF'
-                    cd ${PROJECT_PATH}
+                    cd ${BACKEND_APP}
                     git pull origin main
                     echo "Pull: ok"
-                    python -m venv .venv
-                    source .venv/bin/activate
+                    source venv/bin/activate
                     pip install -r requirements.txt
                     echo "Requirements: ok"
                     python manage.py makemigrations
