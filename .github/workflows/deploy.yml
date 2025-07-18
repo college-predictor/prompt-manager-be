@@ -1,0 +1,40 @@
+name: Deployment (test)
+    on:
+        push:
+            branches:
+                - main
+    
+    jobs:
+        deploy:
+            runs-on: ubuntu-latest
+
+            steps:
+            - name: Set up SSH key
+              run: |
+                mkdir -p ~/.ssh
+                echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_ed25519
+                chmod 600 ~/.ssh/id_ed25519
+                ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+            - name: Deploy
+              env:
+                EC2_USER: ubuntu
+                EC2_HOST: ${{ secrets.EC2_HOST }}
+                PROJECT_PATH: /home/ubuntu/prompt-manager-be
+              run: |
+                ssh -i ~/.ssh/id_ed25519 ${EC2_USER}@${EC2_HOST} << 'EOF'
+                    cd ${PROJECT_PATH}
+                    git pull origin main
+                    echo "Pull: ok"
+                    python -m venv .venv
+                    source .venv/bin/activate
+                    pip install -r requirements.txt
+                    echo "Requirements: ok"
+                    python manage.py makemigrations
+                    python manage.py migrate
+                    echo "Migrate: ok"
+                    python manage.py collectstatic --noinput
+                    echo "Static: ok"
+                    sudo systemctl restart gunicorn
+                    echo "Reloaded."
+                EOF
