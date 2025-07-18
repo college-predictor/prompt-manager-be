@@ -2,6 +2,8 @@ import json
 import api.models as models
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404
+from django.db import IntegrityError
 
 @login_required
 def projects_api(request):
@@ -79,3 +81,245 @@ def config_api(request):
         ]}})
 
     return JsonResponse({"result": "failure", "data": {"message": "unknown config class"}})
+
+
+# Helper function to check project membership
+def _check_project_access(user, project_id):
+    try:
+        project = models.Project.objects.get(id=project_id)
+        membership = models.ProjectMembership.objects.get(user=user, project=project)
+        return project, membership
+    except (models.Project.DoesNotExist, models.ProjectMembership.DoesNotExist):
+        return None, None
+
+
+# PromptCollection API endpoints
+@login_required
+def collections_api(request, project_id):
+    """Handle CRUD operations for prompt collections within a project"""
+    data = json.loads(request.body.decode('UTF-8'))
+    verb = data.get('action', 'list')
+    
+    # Check project access
+    project, membership = _check_project_access(request.user, project_id)
+    if not project:
+        return JsonResponse({"result": "failure", "data": {"message": "Project not found or access denied"}})
+    
+    if verb == 'list':
+        collections = models.PromptCollection.objects.filter(project=project)
+        collection_data = []
+        
+        for collection in collections:
+            collection_data.append({
+                'id': collection.id,
+                'name': collection.name,
+                'description': collection.description,
+                'created_at': collection.created_at.isoformat(),
+                'updated_at': collection.updated_at.isoformat(),
+                'prompt_count': collection.prompts.count()
+            })
+        
+        return JsonResponse({"result": "ok", "data": {"count": collections.count(), "data": collection_data}})
+    
+    if verb == 'new':
+        try:
+            collection = models.PromptCollection.objects.create(
+                name=data['name'],
+                description=data.get('description', ''),
+                project=project
+            )
+            return JsonResponse({"result": "ok", "data": {
+                'id': collection.id,
+                'name': collection.name,
+                'description': collection.description,
+                'created_at': collection.created_at.isoformat(),
+                'updated_at': collection.updated_at.isoformat()
+            }})
+        except IntegrityError:
+            return JsonResponse({"result": "failure", "data": {"message": "Collection name already exists in this project"}})
+    
+    return JsonResponse({"result": "failure", "data": {"message": f"unsupported verb: {verb}"}})
+
+
+@login_required
+def one_collection_api(request, project_id, collection_id):
+    """Handle operations for a specific collection"""
+    data = json.loads(request.body.decode('UTF-8'))
+    verb = data.get('action', 'view')
+    
+    # Check project access
+    project, membership = _check_project_access(request.user, project_id)
+    if not project:
+        return JsonResponse({"result": "failure", "data": {"message": "Project not found or access denied"}})
+    
+    # Get collection
+    collection = get_object_or_404(models.PromptCollection, id=collection_id, project=project)
+    
+    if verb == 'view':
+        prompts = collection.prompts.all()
+        prompt_data = []
+        
+        for prompt in prompts:
+            prompt_data.append({
+                'id': prompt.id,
+                'name': prompt.name,
+                'description': prompt.description,
+                'template': prompt.template,
+                'created_at': prompt.created_at.isoformat(),
+                'updated_at': prompt.updated_at.isoformat()
+            })
+        
+        return JsonResponse({"result": "ok", "data": {
+            'id': collection.id,
+            'name': collection.name,
+            'description': collection.description,
+            'created_at': collection.created_at.isoformat(),
+            'updated_at': collection.updated_at.isoformat(),
+            'prompts': prompt_data
+        }})
+    
+    if verb == 'update':
+        try:
+            if 'name' in data:
+                collection.name = data['name']
+            if 'description' in data:
+                collection.description = data['description']
+            collection.save()
+            
+            return JsonResponse({"result": "ok", "data": {
+                'id': collection.id,
+                'name': collection.name,
+                'description': collection.description,
+                'updated_at': collection.updated_at.isoformat()
+            }})
+        except IntegrityError:
+            return JsonResponse({"result": "failure", "data": {"message": "Collection name already exists in this project"}})
+    
+    if verb == 'delete':
+        collection.delete()
+        return JsonResponse({"result": "ok"})
+    
+    return JsonResponse({"result": "failure", "data": {"message": f"unsupported verb: {verb}"}})
+
+
+# PromptTemplate API endpoints
+@login_required
+def prompts_api(request, project_id):
+    """Handle CRUD operations for prompts within a project"""
+    data = json.loads(request.body.decode('UTF-8'))
+    verb = data.get('action', 'list')
+    
+    # Check project access
+    project, membership = _check_project_access(request.user, project_id)
+    if not project:
+        return JsonResponse({"result": "failure", "data": {"message": "Project not found or access denied"}})
+    
+    if verb == 'list':
+        prompts = models.PromptTemplate.objects.filter(project=project)
+        prompt_data = []
+        
+        for prompt in prompts:
+            prompt_data.append({
+                'id': prompt.id,
+                'name': prompt.name,
+                'description': prompt.description,
+                'collection_id': prompt.collection.id if prompt.collection else None,
+                'collection_name': prompt.collection.name if prompt.collection else None,
+                'template': prompt.template,
+                'created_at': prompt.created_at.isoformat(),
+                'updated_at': prompt.updated_at.isoformat()
+            })
+        
+        return JsonResponse({"result": "ok", "data": {"count": prompts.count(), "data": prompt_data}})
+    
+    if verb == 'new':
+        try:
+            # Check if collection exists if provided
+            collection = None
+            if 'collection_id' in data and data['collection_id']:
+                collection = get_object_or_404(models.PromptCollection, id=data['collection_id'], project=project)
+            
+            prompt = models.PromptTemplate.objects.create(
+                name=data['name'],
+                description=data.get('description', ''),
+                project=project,
+                collection=collection,
+                template=data.get('template', {})
+            )
+            
+            return JsonResponse({"result": "ok", "data": {
+                'id': prompt.id,
+                'name': prompt.name,
+                'description': prompt.description,
+                'collection_id': prompt.collection.id if prompt.collection else None,
+                'collection_name': prompt.collection.name if prompt.collection else None,
+                'template': prompt.template,
+                'created_at': prompt.created_at.isoformat(),
+                'updated_at': prompt.updated_at.isoformat()
+            }})
+        except IntegrityError:
+            return JsonResponse({"result": "failure", "data": {"message": "Prompt name already exists in this project"}})
+    
+    return JsonResponse({"result": "failure", "data": {"message": f"unsupported verb: {verb}"}})
+
+
+@login_required
+def one_prompt_api(request, project_id, prompt_id):
+    """Handle operations for a specific prompt"""
+    data = json.loads(request.body.decode('UTF-8'))
+    verb = data.get('action', 'view')
+    
+    # Check project access
+    project, membership = _check_project_access(request.user, project_id)
+    if not project:
+        return JsonResponse({"result": "failure", "data": {"message": "Project not found or access denied"}})
+    
+    # Get prompt
+    prompt = get_object_or_404(models.PromptTemplate, id=prompt_id, project=project)
+    
+    if verb == 'view':
+        return JsonResponse({"result": "ok", "data": {
+            'id': prompt.id,
+            'name': prompt.name,
+            'description': prompt.description,
+            'collection_id': prompt.collection.id if prompt.collection else None,
+            'collection_name': prompt.collection.name if prompt.collection else None,
+            'template': prompt.template,
+            'created_at': prompt.created_at.isoformat(),
+            'updated_at': prompt.updated_at.isoformat()
+        }})
+    
+    if verb == 'update':
+        try:
+            if 'name' in data:
+                prompt.name = data['name']
+            if 'description' in data:
+                prompt.description = data['description']
+            if 'template' in data:
+                prompt.template = data['template']
+            if 'collection_id' in data:
+                if data['collection_id']:
+                    collection = get_object_or_404(models.PromptCollection, id=data['collection_id'], project=project)
+                    prompt.collection = collection
+                else:
+                    prompt.collection = None
+            
+            prompt.save()
+            
+            return JsonResponse({"result": "ok", "data": {
+                'id': prompt.id,
+                'name': prompt.name,
+                'description': prompt.description,
+                'collection_id': prompt.collection.id if prompt.collection else None,
+                'collection_name': prompt.collection.name if prompt.collection else None,
+                'template': prompt.template,
+                'updated_at': prompt.updated_at.isoformat()
+            }})
+        except IntegrityError:
+            return JsonResponse({"result": "failure", "data": {"message": "Prompt name already exists in this project"}})
+    
+    if verb == 'delete':
+        prompt.delete()
+        return JsonResponse({"result": "ok"})
+    
+    return JsonResponse({"result": "failure", "data": {"message": f"unsupported verb: {verb}"}})

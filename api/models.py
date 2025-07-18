@@ -5,9 +5,8 @@ from authen.models import User
 class LLMProvider(models.IntegerChoices):
     OPENAI = (1, "OpenAI")
     GOOGLE_GENAI = (2, "Google GenAI")
-    AMAZON_BEDROCK = (3, "Amazon Bedrock")
+    ANTHROPIC = (3, "Anthropic")
     AZURE = (4, "Azure")
-    ANTHROPIC = (5, "Anthropic")
 
 
 class Role(models.IntegerChoices):
@@ -16,6 +15,7 @@ class Role(models.IntegerChoices):
 
 
 class LLMRoles(models.IntegerChoices):
+    INSTRUCTION = (4, "instruction")
     SYSTEM = (3, "system")
     DEVELOPER = (2, "developer")
     USER = (1, "user")
@@ -33,8 +33,6 @@ class LLMModel(models.Model):
     top_k_allowed = models.BooleanField(default=False)
     image_input_allowed = models.BooleanField(default=False)
     audio_input_allowed = models.BooleanField(default=False)
-    reasoning_allowed = models.BooleanField(default=False)
-    stream_allowed = models.BooleanField(default=True)
 
     def __str__(self) -> str:
         return (
@@ -57,8 +55,6 @@ class LLMModel(models.Model):
             "roles_allowed": self.roles_allowed,
             "image_input_allowed": self.image_input_allowed,
             "audio_input_allowed": self.audio_input_allowed,
-            "reasoning_allowed": self.reasoning_allowed,
-            "stream_allowed": self.stream_allowed,
         }
 
 
@@ -76,3 +72,33 @@ class ProjectMembership(models.Model):
 
     class Meta:
         unique_together = ('user', 'project')
+
+
+class PromptCollection(models.Model):
+    name = models.CharField(max_length=120, null=False)
+    description = models.TextField(default=None, blank=True)
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='prompt_collections')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ('name', 'project')
+    
+    def __str__(self):
+        return f"PromptCollection(name='{self.name}', project='{self.project.name}')"
+
+
+class PromptTemplate(models.Model):
+    name = models.CharField(max_length=120, null=False)
+    description = models.TextField(default=None, blank=True)
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='prompt_templates')
+    collection = models.ForeignKey(PromptCollection, on_delete=models.CASCADE, related_name='prompts', null=True, blank=True)
+    template = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('name', 'project')
+    
+    def __str__(self):
+        return f"PromptTemplate(name='{self.name}', project='{self.project.name}', collection='{self.collection.name if self.collection else None}')"
