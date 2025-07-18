@@ -6,3 +6,4 @@ secrets/*
 db.sqlite3
 .venv/*
 .vscode/*
+.DS_Store
