@@ -33,6 +33,8 @@ class LLMModel(models.Model):
     top_k_allowed = models.BooleanField(default=False)
     image_input_allowed = models.BooleanField(default=False)
     audio_input_allowed = models.BooleanField(default=False)
+    reasoning_allowed = models.BooleanField(default=False)
+    stream_allowed = models.BooleanField(default=True)
 
     def __str__(self) -> str:
         return (
@@ -48,13 +50,15 @@ class LLMModel(models.Model):
             "provider_id": self.provider_id,
             "provider_name": LLMProvider(self.provider_id).label,
             "description": self.description,
-            "temperature": self.temperature_allowed,
-            "max_tokens": self.has_max_token_limit,
-            "top_p": self.top_p_allowed,
-            "top_k": self.top_k_allowed,
+            "temperature_allowed": self.temperature_allowed,
+            "has_max_token_limit": self.has_max_token_limit,
+            "top_p_allowed": self.top_p_allowed,
+            "top_k_allowed": self.top_k_allowed,
             "roles_allowed": self.roles_allowed,
-            "image_input": self.image_input_allowed,
-            "audio_input": self.audio_input_allowed
+            "image_input_allowed": self.image_input_allowed,
+            "audio_input_allowed": self.audio_input_allowed,
+            "reasoning_allowed": self.reasoning_allowed,
+            "stream_allowed": self.stream_allowed,
         }
 
 
