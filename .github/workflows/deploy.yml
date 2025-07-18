@@ -22,4 +22,4 @@ jobs:
                 EC2_USER: ubuntu
                 EC2_HOST: ${{ secrets.EC2_HOST }}
               run: |
-                ssh -i ~/.ssh/id_ed25519 ${EC2_USER}@${EC2_HOST} ~/prompt-manager-be/scripts/deploy.sh
+                ssh -i ~/.ssh/id_ed25519 ${EC2_USER}@${EC2_HOST} /home/ubuntu/prompt-manager-be/scripts/deploy.sh
