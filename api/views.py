@@ -4,6 +4,8 @@ from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404
 from django.db import IntegrityError
+from .prompt_factory import PromptFactory
+from django.core.exceptions import ValidationError
 
 @login_required
 def projects_api(request):
@@ -47,6 +49,57 @@ def projects_api(request):
         return JsonResponse({"result": "ok"})
 
     return JsonResponse({"result": "failure", "data": {"message": f"unsupported verb: {verb}"}})
+
+
+@login_required
+def prompt_factory_api(request, project_id):
+    """API endpoint to get formatted prompt content using PromptFactory"""
+    try:
+        data = json.loads(request.body.decode('UTF-8'))
+        prompt_name = data.get('prompt_name')
+        variables = data.get('variables', {})
+        provider_id = data.get('provider_id', None)
+        model_name = data.get('model_name', None)
+
+        if not prompt_name:
+            return JsonResponse({
+                "result": "failure", 
+                "data": {"message": "prompt_name is required"}
+            })
+        
+        # Validate that either both provider_id and model_name are provided or neither
+        if (provider_id is None) != (model_name is None):
+            return JsonResponse({
+                "result": "failure",
+                "data": {"message": "Both provider_id and model_name must be provided together, or neither should be provided"}
+            })
+        
+        # Create PromptFactory instance
+        factory = PromptFactory(
+            prompt_name=prompt_name,
+            user=request.user,
+            project_id=project_id,
+            variables=variables
+        )
+        
+        # Build the formatted prompt
+        prompt_data = factory.build_prompt(provider_id, model_name)
+        
+        return JsonResponse({
+            "result": "ok", 
+            "data": prompt_data
+        })
+        
+    except ValidationError as e:
+        return JsonResponse({
+            "result": "failure", 
+            "data": {"message": str(e)}
+        })
+    except Exception as e:
+        return JsonResponse({
+            "result": "failure", 
+            "data": {"message": f"Error processing request: {str(e)}"}
+        })
     
 
 @login_required
@@ -115,7 +168,6 @@ def collections_api(request, project_id):
                 'name': collection.name,
                 'description': collection.description,
                 'created_at': collection.created_at.isoformat(),
-                'updated_at': collection.updated_at.isoformat(),
                 'prompt_count': collection.prompts.count()
             })
         
@@ -225,7 +277,15 @@ def prompts_api(request, project_id):
                 'description': prompt.description,
                 'collection_id': prompt.collection.id if prompt.collection else None,
                 'collection_name': prompt.collection.name if prompt.collection else None,
-                'template': prompt.template,
+                'model_name': prompt.llm_model.model_name,
+                'llm_provider': models.LLMProvider(prompt.llm_provider).label,
+                'messages': prompt.messages,
+                'temperature': prompt.temperature,
+                'max_tokens': prompt.max_tokens,
+                'top_p': prompt.top_p,
+                'top_k': prompt.top_k,
+                'frequency_penalty': prompt.frequency_penalty,
+                'presence_penalty': prompt.presence_penalty,
                 'created_at': prompt.created_at.isoformat(),
                 'updated_at': prompt.updated_at.isoformat()
             })
@@ -239,12 +299,23 @@ def prompts_api(request, project_id):
             if 'collection_id' in data and data['collection_id']:
                 collection = get_object_or_404(models.PromptCollection, id=data['collection_id'], project=project)
             
+            # Get LLM model
+            llm_model = get_object_or_404(models.LLMModel, id=data['llm_model'])
+            
             prompt = models.PromptTemplate.objects.create(
                 name=data['name'],
                 description=data.get('description', ''),
                 project=project,
                 collection=collection,
-                template=data.get('template', {})
+                llm_model=llm_model,
+                llm_provider=models.LLMProvider[data['llm_provider'].upper()].value,
+                messages=data.get('messages', {}),
+                temperature=data.get('temperature'),
+                max_tokens=data.get('max_tokens'),
+                top_p=data.get('top_p'),
+                top_k=data.get('top_k'),
+                frequency_penalty=data.get('frequency_penalty'),
+                presence_penalty=data.get('presence_penalty')
             )
             
             return JsonResponse({"result": "ok", "data": {
@@ -253,7 +324,15 @@ def prompts_api(request, project_id):
                 'description': prompt.description,
                 'collection_id': prompt.collection.id if prompt.collection else None,
                 'collection_name': prompt.collection.name if prompt.collection else None,
-                'template': prompt.template,
+                'llm_model': prompt.llm_model.serialize(),
+                'llm_provider': models.LLMProvider(prompt.llm_provider).label,
+                'messages': prompt.messages,
+                'temperature': prompt.temperature,
+                'max_tokens': prompt.max_tokens,
+                'top_p': prompt.top_p,
+                'top_k': prompt.top_k,
+                'frequency_penalty': prompt.frequency_penalty,
+                'presence_penalty': prompt.presence_penalty,
                 'created_at': prompt.created_at.isoformat(),
                 'updated_at': prompt.updated_at.isoformat()
             }})
@@ -284,7 +363,15 @@ def one_prompt_api(request, project_id, prompt_id):
             'description': prompt.description,
             'collection_id': prompt.collection.id if prompt.collection else None,
             'collection_name': prompt.collection.name if prompt.collection else None,
-            'template': prompt.template,
+            'llm_model': prompt.llm_model.serialize(),
+            'llm_provider': models.LLMProvider(prompt.llm_provider).label,
+            'messages': prompt.messages,
+            'temperature': prompt.temperature,
+            'max_tokens': prompt.max_tokens,
+            'top_p': prompt.top_p,
+            'top_k': prompt.top_k,
+            'frequency_penalty': prompt.frequency_penalty,
+            'presence_penalty': prompt.presence_penalty,
             'created_at': prompt.created_at.isoformat(),
             'updated_at': prompt.updated_at.isoformat()
         }})
@@ -295,8 +382,25 @@ def one_prompt_api(request, project_id, prompt_id):
                 prompt.name = data['name']
             if 'description' in data:
                 prompt.description = data['description']
-            if 'template' in data:
-                prompt.template = data['template']
+            if 'llm_model' in data:
+                llm_model = get_object_or_404(models.LLMModel, id=data['llm_model'])
+                prompt.llm_model = llm_model
+            if 'llm_provider' in data:
+                prompt.llm_provider = data['llm_provider']
+            if 'messages' in data:
+                prompt.messages = data['messages']
+            if 'temperature' in data:
+                prompt.temperature = data['temperature']
+            if 'max_tokens' in data:
+                prompt.max_tokens = data['max_tokens']
+            if 'top_p' in data:
+                prompt.top_p = data['top_p']
+            if 'top_k' in data:
+                prompt.top_k = data['top_k']
+            if 'frequency_penalty' in data:
+                prompt.frequency_penalty = data['frequency_penalty']
+            if 'presence_penalty' in data:
+                prompt.presence_penalty = data['presence_penalty']
             if 'collection_id' in data:
                 if data['collection_id']:
                     collection = get_object_or_404(models.PromptCollection, id=data['collection_id'], project=project)
@@ -312,7 +416,15 @@ def one_prompt_api(request, project_id, prompt_id):
                 'description': prompt.description,
                 'collection_id': prompt.collection.id if prompt.collection else None,
                 'collection_name': prompt.collection.name if prompt.collection else None,
-                'template': prompt.template,
+                'llm_model': prompt.llm_model.serialize(),
+                'llm_provider': models.LLMProvider(prompt.llm_provider).label,
+                'messages': prompt.messages,
+                'temperature': prompt.temperature,
+                'max_tokens': prompt.max_tokens,
+                'top_p': prompt.top_p,
+                'top_k': prompt.top_k,
+                'frequency_penalty': prompt.frequency_penalty,
+                'presence_penalty': prompt.presence_penalty,
                 'updated_at': prompt.updated_at.isoformat()
             }})
         except IntegrityError:
@@ -323,3 +435,5 @@ def one_prompt_api(request, project_id, prompt_id):
         return JsonResponse({"result": "ok"})
     
     return JsonResponse({"result": "failure", "data": {"message": f"unsupported verb: {verb}"}})
+
+

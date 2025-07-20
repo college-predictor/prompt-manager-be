@@ -13,4 +13,7 @@ urlpatterns = [
     # Prompt endpoints
     path("projects/<int:project_id>/prompts", views.prompts_api),
     path("projects/<int:project_id>/prompts/<int:prompt_id>", views.one_prompt_api),
+    
+    # Prompt Factory endpoint
+    path("projects/<int:project_id>/prompt-factory", views.prompt_factory_api),
 ]
