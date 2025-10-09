@@ -62,55 +62,16 @@ class ProjectService:
         return project
     
     @staticmethod
-    async def delete_project(project_id: str, uid_owner: str) -> bool:
+    async def delete_project(project_id: str, uid_owner: str) -> List[str]:
         """Delete a project and all its collections and prompts"""
         project = await ProjectService.get_project_by_id(project_id, uid_owner)
-        if not project:
-            return False
-        
-        # Import here to avoid circular imports
-        from app.models.project import Collection, Prompt, PromptHistory
-        
-        # Get all collections in this project
-        collections = await Collection.find(
-            Collection.project_id == project_id,
-            Collection.uid_owner == uid_owner
-        ).to_list()
-        
-        # Delete all prompts and their history in this project
-        for collection in collections:
-            collection_id = str(collection.id)
-            
-            # Get all prompts in this collection
-            prompts = await Prompt.find(
-                Prompt.collection_id == collection_id,
-                Prompt.uid_owner == uid_owner
-            ).to_list()
-            
-            # Delete history for each prompt
-            for prompt in prompts:
-                await PromptHistory.find(
-                    PromptHistory.prompt_id == str(prompt.id)
-                ).delete()
-            
-            # Delete all prompts in this collection
-            await Prompt.find(
-                Prompt.collection_id == collection_id,
-                Prompt.uid_owner == uid_owner
-            ).delete()
-        
-        # Delete all collections in this project
-        await Collection.find(
-            Collection.project_id == project_id,
-            Collection.uid_owner == uid_owner
-        ).delete()
-        
-        # Delete the project
+        collections_list = project.collections.copy() if project else []
         await project.delete()
-        return True
+
+        return collections_list
     
     @staticmethod
-    async def add_collection_to_project(project_id: str, collection_id: str, uid_owner: str) -> bool:
+    async def add_collection_id_to_project(project_id: str, collection_id: str, uid_owner: str) -> bool:
         """Add a collection ID to project's collections list"""
         project = await ProjectService.get_project_by_id(project_id, uid_owner)
         if not project:
@@ -123,7 +84,7 @@ class ProjectService:
         return True
     
     @staticmethod
-    async def remove_collection_from_project(project_id: str, collection_id: str, uid_owner: str) -> bool:
+    async def remove_collection_id_from_project(project_id: str, collection_id: str, uid_owner: str) -> bool:
         """Remove a collection ID from project's collections list"""
         project = await ProjectService.get_project_by_id(project_id, uid_owner)
         if not project:
@@ -134,39 +95,3 @@ class ProjectService:
             await project.save()
         
         return True
-    
-    @staticmethod
-    async def get_project_stats(project_id: str, uid_owner: str) -> Optional[dict]:
-        """Get statistics for a project"""
-        project = await ProjectService.get_project_by_id(project_id, uid_owner)
-        if not project:
-            return None
-        
-        from app.models.project import Collection, Prompt
-        
-        # Count collections
-        collections_count = await Collection.count_documents(
-            Collection.project_id == project_id,
-            Collection.uid_owner == uid_owner
-        )
-        
-        # Count prompts
-        prompts_count = await Prompt.count_documents(
-            Prompt.project_id == project_id,
-            Prompt.uid_owner == uid_owner
-        )
-        
-        # Count public prompts
-        public_prompts_count = await Prompt.count_documents(
-            Prompt.project_id == project_id,
-            Prompt.uid_owner == uid_owner,
-        )
-        
-        return {
-            "project_id": project_id,
-            "project_name": project.name,
-            "collections_count": collections_count,
-            "prompts_count": prompts_count,
-            "public_prompts_count": public_prompts_count,
-            "created_at": project.created_at
-        }

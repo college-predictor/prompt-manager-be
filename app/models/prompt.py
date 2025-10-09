@@ -41,7 +41,7 @@ class PromptHistory(Document):
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     prompt_text: str = Field(..., min_length=1)
     change_message: Optional[str] = Field(default=None, max_length=200)
-    version: str = Field(..., min_length=1)  # Version identifier for ordering
+    uid_owner: str = Field(..., min_length=1)  # Firebase UID who made the change
     
     class Settings:
         name = "prompt_history"
