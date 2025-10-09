@@ -11,7 +11,6 @@ class Collection(Document):
     project_id: str = Field(..., min_length=1)  # Reference to Project._id
     uid_owner: str = Field(..., min_length=1)  # Firebase UID (denormalized for queries)
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    prompts: List[str] = Field(default_factory=list)  # List of Prompt IDs
 
     class Settings:
         name = "collections"
@@ -19,4 +18,5 @@ class Collection(Document):
             "uid_owner",
             "project_id",
             "created_at",
+            ("project_id", "uid_owner"),  # Compound index for faster queries
         ]

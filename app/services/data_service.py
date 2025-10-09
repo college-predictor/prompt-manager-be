@@ -1,7 +1,7 @@
 from typing import Optional
 from app.services.project_service import ProjectService
 from app.services.collection_service import CollectionService
-from app.services.prompt_service import PromptService
+from app.services.prompt_service import PromptService, PromptHistory
 
 # Export all services
 __all__ = [
@@ -22,3 +22,5 @@ class UserDataManager:
     projects = ProjectService
     collections = CollectionService
     prompts = PromptService
+    prompts_history = PromptService  # Using PromptService for history operations as well
+

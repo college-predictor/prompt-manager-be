@@ -86,46 +86,27 @@ class CollectionService:
         return collection
     
     @staticmethod
-    async def delete_collection(collection_id: str, uid_owner: str) -> List[str]:
+    async def delete_collection(collection_id: str, uid_owner: str) -> bool:
         """Delete a collection and all its prompts"""
         collection = await CollectionService.get_collection_by_id(collection_id, uid_owner)
         if not collection:
             return False
-        
-        ProjectService.remove_collection_from_project(
-            collection.project_id,
-            collection_id,
-            uid_owner
-        )
-
-        prompt_ids = collection.prompts.copy()
-        
         # Delete the collection
         await collection.delete()
-        return prompt_ids
-    
-    @staticmethod
-    async def add_prompt_id_to_collection(collection_id: str, prompt_id: str, uid_owner: str) -> bool:
-        """Add a prompt ID to collection's prompts list"""
-        collection = await CollectionService.get_collection_by_id(collection_id, uid_owner)
-        if not collection:
-            return False
-        
-        if prompt_id not in collection.prompts:
-            collection.prompts.append(prompt_id)
-            await collection.save()
-        
         return True
     
     @staticmethod
-    async def remove_prompt_id_from_collection(collection_id: str, prompt_id: str, uid_owner: str) -> bool:
-        """Remove a prompt ID from collection's prompts list"""
-        collection = await CollectionService.get_collection_by_id(collection_id, uid_owner)
-        if not collection:
-            return False
+    async def delete_collections_by_project(project_id: str, uid_owner: str) -> int:
+        """Delete all collections in a project"""
+        collections = await Collection.find(
+            Collection.project_id == project_id,
+            Collection.uid_owner == uid_owner
+        ).to_list()
         
-        if prompt_id in collection.prompts:
-            collection.prompts.remove(prompt_id)
-            await collection.save()
+        deleted_count = 0
+        for collection in collections:
+            await collection.delete()
+            deleted_count += 1
         
-        return True
+        return deleted_count
+    

@@ -62,36 +62,11 @@ class ProjectService:
         return project
     
     @staticmethod
-    async def delete_project(project_id: str, uid_owner: str) -> List[str]:
+    async def delete_project(project_id: str, uid_owner: str) -> bool:
         """Delete a project and all its collections and prompts"""
         project = await ProjectService.get_project_by_id(project_id, uid_owner)
-        collections_list = project.collections.copy() if project else []
-        await project.delete()
+        if not project:
+            return False
 
-        return collections_list
-    
-    @staticmethod
-    async def add_collection_id_to_project(project_id: str, collection_id: str, uid_owner: str) -> bool:
-        """Add a collection ID to project's collections list"""
-        project = await ProjectService.get_project_by_id(project_id, uid_owner)
-        if not project:
-            return False
-        
-        if collection_id not in project.collections:
-            project.collections.append(collection_id)
-            await project.save()
-        
-        return True
-    
-    @staticmethod
-    async def remove_collection_id_from_project(project_id: str, collection_id: str, uid_owner: str) -> bool:
-        """Remove a collection ID from project's collections list"""
-        project = await ProjectService.get_project_by_id(project_id, uid_owner)
-        if not project:
-            return False
-        
-        if collection_id in project.collections:
-            project.collections.remove(collection_id)
-            await project.save()
-        
+        await project.delete()
         return True

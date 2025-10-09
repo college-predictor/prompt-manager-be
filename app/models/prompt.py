@@ -21,9 +21,9 @@ class Prompt(Document):
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = None
-    
-    # Version tracking
-    version_history: List[str] = Field(default_factory=list)  # List of version numbers available
+
+    # List of PromptHistory._id
+    version_history: List[str] = Field(default_factory=list)
     
     class Settings:
         name = "prompts"
@@ -31,6 +31,8 @@ class Prompt(Document):
             "uid_owner",
             "project_id", 
             "collection_id",
+            ("collection_id", "uid_owner"),  # Compound index for faster search
+            ("project_id", "uid_owner"),
             "tags",
             "created_at",
         ]
@@ -48,4 +50,5 @@ class PromptHistory(Document):
         indexes = [
             "prompt_id",
             "timestamp",
+            ("prompt_id", "uid_owner"),  # Compound index for faster search
         ]
