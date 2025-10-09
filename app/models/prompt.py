@@ -1,0 +1,51 @@
+from beanie import Document
+from pydantic import Field
+from typing import Optional, List
+from datetime import datetime
+
+
+class Prompt(Document):
+    """Document for storing prompts within collections"""
+    title: str = Field(..., min_length=1, max_length=200)
+    description: str = Field(default="", max_length=1000)
+    prompt_text: str = Field(..., min_length=1)
+    
+    # Hierarchy references
+    project_id: str = Field(..., min_length=1)  # Reference to Project._id
+    collection_id: str = Field(..., min_length=1)  # Reference to Collection._id
+    uid_owner: str = Field(..., min_length=1)  # Firebase UID (denormalized for fast queries)
+    
+    # Metadata
+    tags: List[str] = Field(default_factory=list)
+    
+    # Timestamps
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: Optional[datetime] = None
+    
+    # Version tracking
+    version_history: List[str] = Field(default_factory=list)  # List of version numbers available
+    
+    class Settings:
+        name = "prompts"
+        indexes = [
+            "uid_owner",
+            "project_id", 
+            "collection_id",
+            "tags",
+            "created_at",
+        ]
+
+class PromptHistory(Document):
+    """Separate document for tracking prompt changes"""
+    prompt_id: str = Field(..., min_length=1)  # Reference to Prompt._id
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    prompt_text: str = Field(..., min_length=1)
+    change_message: Optional[str] = Field(default=None, max_length=200)
+    version: str = Field(..., min_length=1)  # Version identifier for ordering
+    
+    class Settings:
+        name = "prompt_history"
+        indexes = [
+            "prompt_id",
+            "timestamp",
+        ]
