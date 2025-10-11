@@ -1,10 +1,10 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
-    prompts,
+    user,
 )
 
 api_router = APIRouter()
 
-api_router.include_router(prompts.router, prefix="/prompts", tags=["prompts"])
+api_router.include_router(user.router, prefix="/prompts", tags=["prompts"])
 
 

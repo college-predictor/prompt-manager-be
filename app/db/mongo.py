@@ -1,6 +1,10 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie
 from app.config import settings
+from app.models.project import Project
+from app.models.collection import Collection
+from app.models.folder import Folder
+from app.models.prompt import Prompt, PromptHistory
 
 class MongoDB:
     client: AsyncIOMotorClient = None
@@ -14,8 +18,17 @@ async def connect_to_mongo():
     mongodb.database = mongodb.client[settings.DATABASE_NAME]
     
     # Initialize Beanie with all document models
-    await init_beanie(database=mongodb.database)
-    
+    await init_beanie(
+        database=mongodb.database,
+        document_models=[
+            Project,
+            Collection,
+            Folder,
+            Prompt,
+            PromptHistory
+        ]
+    )
+
 async def close_mongo_connection():
     """Close database connection."""
     if mongodb.client:

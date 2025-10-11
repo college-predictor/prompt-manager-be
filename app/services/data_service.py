@@ -19,17 +19,16 @@ class UserDataManager:
     Unified service class that combines all CRUD operations.
     Provides convenience methods for common cross-service operations.
     """
-    def __init__(self, uid_owner: str):
-        self.uid_owner = uid_owner
+    def __init__(self):
         # Reference to individual services
         self.project_service = ProjectService
         self.collection_service = CollectionService
         self.prompt_service = PromptService
         self.folder_service = FolderService
     
-    async def get_user_projects(self):
+    async def get_user_projects(self, uid_owner: str):
         """Get all projects for the user"""
-        return await self.project_service.get_user_projects(self.uid_owner)
+        return await self.project_service.get_user_projects(uid_owner)
     
     async def get_project_collections(self, project_id: str):
         """Get all collections in a project"""

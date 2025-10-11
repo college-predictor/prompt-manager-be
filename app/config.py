@@ -19,6 +19,6 @@ class Settings(BaseModel):
     
 
     
-    FIREBASE_SA_KEY: str = os.getenv("FIREBASE_SA_FILE")
+    FIREBASE_SA_FILE: str = os.getenv("FIREBASE_SA_FILE")
 
 settings = Settings()
