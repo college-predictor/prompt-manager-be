@@ -17,8 +17,6 @@ class Settings(BaseModel):
 
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", None)
     
-
-    
     FIREBASE_SA_FILE: str = os.getenv("FIREBASE_SA_FILE")
 
 settings = Settings()

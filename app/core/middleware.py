@@ -19,20 +19,13 @@ class FirebaseAuthMiddleware(BaseHTTPMiddleware):
         ]
 
     async def dispatch(self, request: Request, call_next):
-        print("\n=== Firebase Auth Middleware ===")
-        print(f"Request path: {request.url.path}")
-        
         # Skip authentication for public paths
         if any(request.url.path.startswith(path) for path in self.public_paths):
-            print("Path is public, skipping authentication")
             return await call_next(request)
 
         # Get token from header
         auth_header = request.headers.get('Authorization')
-        print(f"Authorization header present: {bool(auth_header)}")
-        
         if not auth_header or not auth_header.startswith('Bearer '):
-            print("Invalid or missing Authorization header")
             raise HTTPException(
                 status_code=401,
                 detail="Missing or invalid authentication token",
