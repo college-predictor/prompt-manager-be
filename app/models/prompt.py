@@ -16,6 +16,7 @@ class Prompt(Document):
     # Hierarchy references
     project_id: str = Field(..., min_length=1)  # Reference to Project._id
     collection_id: str = Field(..., min_length=1)  # Reference to Collection._id
+    folder_id: Optional[str] = None  # Reference to Folder._id (None if at collection root)
     uid_owner: str = Field(..., min_length=1)  # Firebase UID (denormalized for fast queries)
     
     # Metadata
@@ -34,6 +35,7 @@ class Prompt(Document):
             "uid_owner",
             "project_id", 
             "collection_id",
+            "folder_id",
             "tags",
             "created_at",
         ]

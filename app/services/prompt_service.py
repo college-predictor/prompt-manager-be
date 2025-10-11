@@ -4,6 +4,7 @@ from datetime import datetime
 from app.models.prompt import Prompt, PromptHistory
 from app.services.collection_service import CollectionService
 from app.services.project_service import ProjectService
+from app.services.folder_service import FolderService
 
 
 class PromptService:
@@ -18,9 +19,20 @@ class PromptService:
         prompt_text: str,
         description: str = "",
         tags: List[str] = None,
+        folder_id: Optional[str] = None,
     ) -> Optional[Prompt]:
-        """Create a new prompt within a collection"""
+        """Create a new prompt within a collection or folder"""
         # Verify collection exists and user owns it
+        collection = await CollectionService.get_collection_by_id(collection_id)
+        if not collection or collection.uid_owner != uid_owner:
+            return None
+            
+        # If folder_id is provided, verify it exists and user owns it
+        if folder_id:
+            folder = await FolderService.get_folder_by_id(folder_id)
+            if not folder or folder.uid_owner != uid_owner:
+                return None
+                
         prompt = Prompt(
             title=title,
             description=description,
@@ -29,11 +41,17 @@ class PromptService:
             collection_id=collection_id,
             uid_owner=uid_owner,
             tags=tags or [],
+            folder_id=folder_id,
             version_history=[]  # Start with initial version
         )
         # Save the prompt
         saved_prompt = await prompt.insert()
-        await CollectionService.add_prompt_id_to_collection(collection_id, str(saved_prompt.id), uid_owner)
+        
+        # Add prompt reference to folder if specified, otherwise to collection
+        if folder_id:
+            await FolderService.add_prompt(folder_id, str(saved_prompt.id))
+        else:
+            await CollectionService.add_prompt_id_to_collection(collection_id, str(saved_prompt.id), uid_owner)
         
         return saved_prompt
 
@@ -190,4 +208,22 @@ class PromptService:
             await prompt.delete()
             deleted_count += 1
             
+        return deleted_count
+    
+    async def delete_prompts_by_folder_id(self, folder_id: str) -> int:
+        """Delete all prompts in a folder if user owns them, including all history versions"""
+        prompts = await Prompt.find(
+            Prompt.folder_id == folder_id
+        ).to_list()
+        
+        deleted_count = 0
+        for prompt in prompts:
+            # Delete all history versions for this prompt
+            await PromptHistory.find(
+                PromptHistory.prompt_id == str(prompt.id)
+            ).delete()
+            
+            # Delete the prompt
+            await prompt.delete()
+            deleted_count += 1
         return deleted_count

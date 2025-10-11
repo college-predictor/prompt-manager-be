@@ -2,12 +2,14 @@ from typing import Optional
 from app.services.project_service import ProjectService
 from app.services.collection_service import CollectionService
 from app.services.prompt_service import PromptService
+from app.services.folder_service import FolderService
 
 # Export all services
 __all__ = [
     'ProjectService',
     'CollectionService', 
     'PromptService',
+    'FolderService',
     'DataService'
 ]
 
@@ -23,6 +25,7 @@ class UserDataManager:
         self.project_service = ProjectService
         self.collection_service = CollectionService
         self.prompt_service = PromptService
+        self.folder_service = FolderService
     
     async def get_user_projects(self):
         """Get all projects for the user"""
@@ -63,3 +66,9 @@ class UserDataManager:
         
         return True
     
+    async def delete_folder_and_contents(self, folder_id: str) -> list[str]:
+        """Delete a folder and all its subfolders and prompts, returning all deleted folder IDs"""
+        deleted_folder_ids = await self.folder_service.delete_folder_and_get_ids(folder_id)
+
+        for folder_id in deleted_folder_ids:
+            await self.prompt_service.delete_prompts_by_folder_id(folder_id)
