@@ -38,22 +38,20 @@ class PromptService:
         return saved_prompt
 
     @staticmethod    
-    async def get_prompt_by_id(prompt_id: str, uid_owner: str) -> Optional[Prompt]:
+    async def get_prompt_by_id(prompt_id: str) -> Optional[Prompt]:
         """Get a specific prompt only if user owns it (for modifications)""" 
         try:
             return await Prompt.find_one(
-                Prompt.id == PydanticObjectId(prompt_id),
-                Prompt.uid_owner == uid_owner,
+                Prompt.id == PydanticObjectId(prompt_id)
             )
         except Exception:
             return None
     
     @staticmethod
-    async def get_collection_prompts(collection_id: str, uid_owner: str) -> List[Prompt]:    
+    async def get_collection_prompts(collection_id: str) -> List[Prompt]:    
         """Get all prompts in a collection"""
         return await Prompt.find(
-            Prompt.collection_id == collection_id,
-            Prompt.uid_owner == uid_owner
+            Prompt.collection_id == collection_id
         ).sort("-created_at").to_list()
 
     @staticmethod
@@ -66,7 +64,6 @@ class PromptService:
     @staticmethod
     async def update_prompt(        
         prompt_id: str,
-        uid_owner: str,
         title: Optional[str] = None,
         description: Optional[str] = None,
         prompt_text: Optional[str] = None,
@@ -74,7 +71,7 @@ class PromptService:
         change_message: Optional[str] = None
     ) -> Optional[Prompt]:
         """Update a prompt if user owns it and track history"""
-        prompt = await PromptService.get_prompt_by_id(prompt_id, uid_owner)
+        prompt = await PromptService.get_prompt_by_id(prompt_id)
         if not prompt:
             return None
         
@@ -88,8 +85,7 @@ class PromptService:
                 prompt_id=prompt_id,
                 timestamp=prompt.updated_at,
                 prompt_text=prompt.prompt_text,
-                change_message=change_message,
-                uid_owner=uid_owner
+                change_message=change_message
             )
             saved_old_prompt = await old_prompt.insert()
             
@@ -107,30 +103,28 @@ class PromptService:
         
         # Update version info if text changed
         if text_changed:
-            update_data["version_history"] = prompt.version_history.append(str(saved_old_prompt.id))
+            update_data["change_history"] = prompt.change_history.append(str(saved_old_prompt.id))
         
         await prompt.update({"$set": update_data})
         return await prompt.save()
 
     @staticmethod
-    async def get_prompt_history(prompt_id: str, uid_owner: str) -> Optional[List[PromptHistory]]:
+    async def get_prompt_history_by_id(history_id: str) -> Optional[List[PromptHistory]]:
         # Get all history entries for this prompt, sorted by timestamp (newest first)
         history_entries = await PromptHistory.find(
-            PromptHistory.prompt_id == prompt_id,
-            PromptHistory.uid_owner == uid_owner
+            PromptHistory.prompt_id == history_id
         ).sort("-timestamp").to_list()
         
         return history_entries
 
     @staticmethod
-    async def get_prompt_version(
+    async def get_prompt_history(
         prompt_id: str,
-        version: str,
-        uid_owner: str
+        version: str
     ) -> Optional[PromptHistory]:
         """Get a specific version of a prompt"""
         # Verify user owns the prompt
-        prompt = await PromptService.get_prompt_by_id(prompt_id, uid_owner)
+        prompt = await PromptService.get_prompt_by_id(prompt_id)
         if not prompt:
             return None
         
@@ -141,32 +135,29 @@ class PromptService:
         )
 
     @staticmethod
-    async def delete_prompt(prompt_id: str, uid_owner: str) -> bool:
+    async def delete_prompt(prompt_id: str) -> bool:
         """Delete a prompt if user owns it, including all history versions"""
-        prompt = await PromptService.get_prompt_by_id(prompt_id, uid_owner)
-        if not prompt:
-            return False
+        # Delete the prompt
+        await Prompt.find_one(
+            Prompt.id == PydanticObjectId(prompt_id)
+        ).delete
 
         # Delete all history versions for this prompt
         await PromptHistory.find(
-            PromptHistory.prompt_id == prompt_id,
-            PromptHistory.uid_owner == uid_owner
+            PromptHistory.prompt_id == prompt_id
         ).delete()
 
-        # Delete the prompt
-        await prompt.delete()
         return True
     
     @staticmethod
-    async def delete_prompts_by_collection(collection_id: str, uid_owner: str) -> int:
+    async def delete_prompts_by_collection(collection_id: str) -> int:
         """Delete all prompts in a collection if user owns them, including all history versions"""
-        prompts = await PromptService.get_collection_prompts(collection_id, uid_owner)
+        prompts = await PromptService.get_collection_prompts(collection_id)
         deleted_count = 0
         for prompt in prompts:
             # Delete all history versions for this prompt
             await PromptHistory.find(
-                PromptHistory.prompt_id == str(prompt.id),
-                PromptHistory.uid_owner == uid_owner
+                PromptHistory.prompt_id == str(prompt.id)
             ).delete()
             
             # Delete the prompt
@@ -175,12 +166,11 @@ class PromptService:
         return deleted_count
     
     @staticmethod
-    async def delete_prompts_by_project(project_id: str, uid_owner: str) -> int:
+    async def delete_prompts_by_project(project_id: str) -> int:
         """Delete all prompts in a project if user owns them, including all history versions"""
         # Get all prompts in the project first
         all_prompts = await Prompt.find(
-            Prompt.project_id == project_id,
-            Prompt.uid_owner == uid_owner
+            Prompt.project_id == project_id
         ).to_list()
         
         if not all_prompts:
@@ -192,7 +182,6 @@ class PromptService:
         # Delete all history entries for all prompts in one operation
         await PromptHistory.find(
             PromptHistory.prompt_id.in_(prompt_ids),
-            PromptHistory.uid_owner == uid_owner
         ).delete()
         
         # Delete all prompts

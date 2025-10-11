@@ -9,6 +9,9 @@ class Prompt(Document):
     title: str = Field(..., min_length=1, max_length=200)
     description: str = Field(default="", max_length=1000)
     prompt_text: str = Field(..., min_length=1)
+
+    # Optional LLM configuration for the prompt
+    llm_configurations: Optional[dict] = Field(default=None)
     
     # Hierarchy references
     project_id: str = Field(..., min_length=1)  # Reference to Project._id
@@ -23,7 +26,7 @@ class Prompt(Document):
     updated_at: Optional[datetime] = None
 
     # List of PromptHistory._id
-    version_history: List[str] = Field(default_factory=list)
+    change_history: List[str] = Field(default_factory=list)
     
     class Settings:
         name = "prompts"
@@ -31,8 +34,6 @@ class Prompt(Document):
             "uid_owner",
             "project_id", 
             "collection_id",
-            ("collection_id", "uid_owner"),  # Compound index for faster search
-            ("project_id", "uid_owner"),
             "tags",
             "created_at",
         ]
@@ -43,7 +44,7 @@ class PromptHistory(Document):
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     prompt_text: str = Field(..., min_length=1)
     change_message: Optional[str] = Field(default=None, max_length=200)
-    uid_owner: str = Field(..., min_length=1)  # Firebase UID who made the change
+    llm_configurations: Optional[dict] = Field(default=None)
     
     class Settings:
         name = "prompt_history"

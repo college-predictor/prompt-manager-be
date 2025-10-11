@@ -18,5 +18,4 @@ class Collection(Document):
             "uid_owner",
             "project_id",
             "created_at",
-            ("project_id", "uid_owner"),  # Compound index for faster queries
         ]

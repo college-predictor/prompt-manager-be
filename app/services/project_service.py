@@ -20,12 +20,11 @@ class ProjectService:
         return await project.insert()
     
     @staticmethod
-    async def get_project_by_id(project_id: str, uid_owner: str) -> Optional[Project]:
+    async def get_project_by_id(project_id: str) -> Optional[Project]:
         """Get a specific project if user owns it"""
         try:
             return await Project.find_one(
-                Project.id == PydanticObjectId(project_id),
-                Project.uid_owner == uid_owner
+                Project.id == PydanticObjectId(project_id)
             )
         except Exception:
             return None
@@ -40,12 +39,11 @@ class ProjectService:
     @staticmethod
     async def update_project(
         project_id: str,
-        uid_owner: str,
         name: Optional[str] = None,
         description: Optional[str] = None
     ) -> Optional[Project]:
         """Update a project if user owns it"""
-        project = await ProjectService.get_project_by_id(project_id, uid_owner)
+        project = await ProjectService.get_project_by_id(project_id)
         if not project:
             return None
         
@@ -62,9 +60,9 @@ class ProjectService:
         return project
     
     @staticmethod
-    async def delete_project(project_id: str, uid_owner: str) -> bool:
+    async def delete_project(project_id: str) -> bool:
         """Delete a project and all its collections and prompts"""
-        project = await ProjectService.get_project_by_id(project_id, uid_owner)
+        project = await ProjectService.get_project_by_id(project_id)
         if not project:
             return False
 
