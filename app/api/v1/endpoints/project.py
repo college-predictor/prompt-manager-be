@@ -1,7 +1,5 @@
 from fastapi import APIRouter, Request, HTTPException, status
-from typing import List, Optional
-from datetime import datetime
-from beanie import PydanticObjectId
+from typing import List
 from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectResponse, ProjectList
 from app.services.data_service import UserDataManager, ProjectService
 

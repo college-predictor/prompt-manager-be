@@ -15,7 +15,6 @@ class FirebaseAuthMiddleware(BaseHTTPMiddleware):
             "/health",
             "/docs",
             "/redoc",
-            "/api/v1/auth/login",  # Add your public endpoints here
         ]
 
     async def dispatch(self, request: Request, call_next):
