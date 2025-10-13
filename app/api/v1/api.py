@@ -5,6 +5,6 @@ from app.api.v1.endpoints import (
 
 api_router = APIRouter()
 
-api_router.include_router(project.router, prefix="/prompts", tags=["prompts"])
+api_router.include_router(project.router, prefix="/projects", tags=["projects"])
 
 

@@ -115,10 +115,10 @@ class UserDataManager:
 
     # Delete operations with cascading
     @staticmethod
-    async def delete_project_and_contents(project_id: str, uid_owner: str) -> bool:
+    async def delete_project_and_contents(uid_owner: str, project_id: str) -> bool:
         """Delete a project and all its collections and prompts"""
         # First verify project exists and user owns it
-        project = await ProjectService.get_project_by_id(project_id, uid_owner)
+        project = await ProjectService.get_project_by_id(uid_owner=uid_owner, project_id=project_id)
         if not project:
             return False
 
