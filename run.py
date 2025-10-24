@@ -1,8 +1,3 @@
-#!/usr/bin/env python3
-"""
-Startup script for the Educational Website API
-"""
-
 import uvicorn
 import os
 from app.core.config import settings

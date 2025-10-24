@@ -19,4 +19,7 @@ class Settings(BaseModel):
     MAX_FILE_SIZE: int = int(os.getenv("MAX_FILE_SIZE", 10 * 1024 * 1024))  # 10MB
     UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "uploads/")
 
+    # Firebase
+    SA_KEY_FILE: str = os.getenv("FIREBASE_SA_FILE", "secrets/serviceAccountKey.json")
+
 settings = Settings()

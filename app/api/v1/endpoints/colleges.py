@@ -1,158 +1,201 @@
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, HTTPException, Query, Depends, status
 from typing import List, Optional
 from beanie import PydanticObjectId
 from app.models.college import College
-from app.schemas.college import (
-    CollegeCreate, 
-    CollegeUpdate, 
-    CollegeResponse, 
-    CollegeListResponse
-)
+from app.schemas.base import BaseResponseSchema
+from app.services.college_service import CollegeService
 
 router = APIRouter()
 
-@router.post("/", response_model=CollegeResponse, status_code=201)
-async def create_college(college_data: CollegeCreate):
-    """Create a new college"""
-    try:
-        college_dict = college_data.model_dump()
-        college = College(**college_dict)
-        await college.create()
-        return CollegeResponse(
-            id=str(college.id),
-            **college_dict
-        )
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error creating college: {str(e)}")
 
-@router.get("/", response_model=CollegeListResponse)
+@router.get(
+    "/",
+    response_model=BaseResponseSchema,
+    summary="Get list of colleges",
+    description="Retrieve colleges with optional filtering, sorting, and pagination"
+)
 async def get_colleges(
-    page: int = Query(1, ge=1, description="Page number"),
-    size: int = Query(10, ge=1, le=100, description="Page size"),
-    search: Optional[str] = Query(None, description="Search by name or description"),
-    category: Optional[str] = Query(None, description="Filter by category"),
-    type: Optional[str] = Query(None, description="Filter by type"),
-    state: Optional[str] = Query(None, description="Filter by state")
-):
-    """Get list of colleges with pagination and filters"""
+    search: Optional[str] = Query(
+        None,
+        description="Search by college name (case-insensitive)",
+        min_length=2,
+        max_length=100
+    ),
+    state: Optional[str] = Query(
+        None,
+        description="Filter by state (e.g., Delhi, Karnataka, Maharashtra)"
+    ),
+    type: Optional[str] = Query(
+        None,
+        description="Filter by college type (Public or Private)"
+    ),
+    category: Optional[str] = Query(
+        None,
+        description="Filter by category (e.g., Engineering, Medical, Management)"
+    ),
+    sort_by: Optional[str] = Query(
+        None,
+        description="Sort by field",
+        pattern="^(ranking|rating|fees|placement)$",
+        alias="sortBy"
+    ),
+    page: int = Query(
+        1,
+        ge=1,
+        description="Page number (starts from 1)"
+    ),
+    limit: int = Query(
+        10,
+        ge=1,
+        le=100,
+        description="Number of items per page (max 100)"
+    ),
+) -> BaseResponseSchema:
+    """
+    Get colleges with optional filters and pagination.
+    """
     try:
-        skip = (page - 1) * size
-        
+        print("query params:", {
+            "search": search,
+            "state": state,
+            "type": type,
+            "category": category,
+            "sort_by": sort_by,
+            "page": page,
+            "limit": limit
+        })
         # Build query filters
-        query_filter = {}
+        query = {}
+        
         if search:
-            query_filter["$or"] = [
-                {"name": {"$regex": search, "$options": "i"}},
-                {"description": {"$regex": search, "$options": "i"}}
-            ]
-        if category:
-            query_filter["category"] = category
-        if type:
-            query_filter["type"] = type
+            search = search.strip()
+            query["name"] = {"$regex": search, "$options": "i"}
+        
         if state:
-            query_filter["address.state"] = {"$regex": state, "$options": "i"}
+            query["state"] = state.strip()
         
-        # Get total count
-        total = await College.find(query_filter).count()
+        if type:
+            valid_types = ["Public", "Private"]
+            if type not in valid_types:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid type. Must be one of: {', '.join(valid_types)}"
+                )
+            query["type"] = type
         
-        # Get colleges with pagination
-        colleges = await College.find(query_filter).skip(skip).limit(size).to_list()
+        if category:
+            query["category"] = category.strip()
         
-        college_responses = []
-        for college in colleges:
-            college_dict = college.dict()
-            college_dict["id"] = str(college.id)
-            college_responses.append(CollegeResponse(**college_dict))
+        # Build sort criteria
+        sort_criteria = None
+        if sort_by:
+            sort_fields = {
+                "ranking": "ranking",
+                "rating": "rating",
+                "fees": "fees",
+                "placement": "placement",
+            }
+            sort_field = sort_fields.get(sort_by)
+            sort_order = -1  # Descending order
+            sort_criteria = [(sort_field, sort_order)]
         
-        return CollegeListResponse(
-            colleges=college_responses,
-            total=total,
+        # Fetch colleges from service
+        colleges_data = await CollegeService.get_colleges(
+            query=query,
+            sort_criteria=sort_criteria,
             page=page,
-            size=size
+            page_size=limit
         )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching colleges: {str(e)}")
-
-@router.get("/{college_id}", response_model=CollegeResponse)
-async def get_college(college_id: str):
-    """Get a specific college by ID"""
-    try:
-        if not PydanticObjectId.is_valid(college_id):
-            raise HTTPException(status_code=400, detail="Invalid college ID")
         
-        college = await College.get(PydanticObjectId(college_id))
-        if not college:
-            raise HTTPException(status_code=404, detail="College not found")
-        
-        college_dict = college.dict()
-        college_dict["id"] = str(college.id)
-        return CollegeResponse(**college_dict)
+        return BaseResponseSchema(
+            success=True,
+            message="Colleges retrieved successfully",
+            data=colleges_data.model_dump()
+        )
+    
     except HTTPException:
         raise
+    
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching college: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while fetching colleges"
+        )
 
-@router.put("/{college_id}", response_model=CollegeResponse)
-async def update_college(college_id: str, college_data: CollegeUpdate):
-    """Update a college"""
+
+@router.get(
+    "/{college_id}",
+    response_model=BaseResponseSchema,
+    summary="Get college by ID"
+)
+async def get_college_by_id(college_id: str) -> BaseResponseSchema:
+    """Get detailed information about a specific college."""
     try:
-        if not PydanticObjectId.is_valid(college_id):
-            raise HTTPException(status_code=400, detail="Invalid college ID")
+        college = await CollegeService.get_college_by_id(college_id)
         
-        college = await College.get(PydanticObjectId(college_id))
         if not college:
-            raise HTTPException(status_code=404, detail="College not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"College with ID {college_id} not found"
+            )
         
-        # Update only provided fields
-        update_data = college_data.model_dump()
-        if update_data:
-            await college.set(update_data)
-        
-        college_dict = college.dict()
-        college_dict["id"] = str(college.id)
-        return CollegeResponse(**college_dict)
+        return BaseResponseSchema(
+            success=True,
+            message="College retrieved successfully",
+            data=college
+        )
+    
     except HTTPException:
         raise
+    
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error updating college: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while fetching the college"
+        )
 
-@router.delete("/{college_id}", status_code=204)
-async def delete_college(college_id: str):
-    """Delete a college"""
-    try:
-        if not PydanticObjectId.is_valid(college_id):
-            raise HTTPException(status_code=400, detail="Invalid college ID")
-        
-        college = await College.get(PydanticObjectId(college_id))
-        if not college:
-            raise HTTPException(status_code=404, detail="College not found")
-        
-        await college.delete()
-        return None
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error deleting college: {str(e)}")
 
-@router.get("/{college_id}/stats")
-async def get_college_stats(college_id: str):
-    """Get college statistics"""
+@router.get(
+    "/filters/states",
+    response_model=BaseResponseSchema,
+    summary="Get available states"
+)
+async def get_states() -> BaseResponseSchema:
+    """Get list of all states that have colleges."""
     try:
-        if not PydanticObjectId.is_valid(college_id):
-            raise HTTPException(status_code=400, detail="Invalid college ID")
+        states = await CollegeService.get_unique_states()
         
-        college = await College.get(PydanticObjectId(college_id))
-        if not college:
-            raise HTTPException(status_code=404, detail="College not found")
-        
-        # TODO: Add logic to get associated faculties, branches, scholarships count
-        return {
-            "college_id": college_id,
-            "faculty_count": 0,  # Will be implemented when faculty endpoint is linked
-            "branch_count": 0,   # Will be implemented when junction endpoint is linked
-            "scholarship_count": 0  # Will be implemented when scholarship endpoint is linked
-        }
-    except HTTPException:
-        raise
+        return BaseResponseSchema(
+            success=True,
+            message="States retrieved successfully",
+            data={"states": states}
+        )
+    
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching college stats: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while fetching states"
+        )
+
+
+@router.get(
+    "/filters/categories",
+    response_model=BaseResponseSchema,
+    summary="Get available categories"
+)
+async def get_categories() -> BaseResponseSchema:
+    """Get list of all college categories."""
+    try:
+        categories = await CollegeService.get_unique_categories()
+        
+        return BaseResponseSchema(
+            success=True,
+            message="Categories retrieved successfully",
+            data={"categories": categories}
+        )
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while fetching categories"
+        )

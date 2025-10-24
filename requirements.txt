@@ -7,3 +7,4 @@ redis
 beanie
 motor
 python-dotenv
+firebase-admin

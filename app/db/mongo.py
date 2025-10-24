@@ -32,11 +32,6 @@ async def connect_to_mongo():
             database=mongodb.db,
             document_models=[
                 College,
-                Faculty,
-                AcademicStream,
-                AcademicCourse,
-                Scholarship,
-                CollegeJunction
             ]
         )
         print("✅ Beanie ODM initialized successfully!")
